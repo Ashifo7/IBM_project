@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pollution Checker</title>
+    <script>
+        async function fetchStates() {
+            const response = await fetch('/states');
+            const states = await response.json();
+            const stateSelect = document.getElementById('state');
+            states.forEach(state => {
+                let option = document.createElement('option');
+                option.value = state;
+                option.textContent = state;
+                stateSelect.appendChild(option);
+            });
+        }
+
+        async function fetchCities(state) {
+            const response = await fetch(`/cities?state=${state}`);
+            const cities = await response.json();
+            const citySelect = document.getElementById('city');
+            citySelect.innerHTML = '<option value="">Select City</option>'; // Reset cities
+            cities.forEach(city => {
+                let option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
+        async function checkPollution() {
+            const state = document.getElementById('state').value;
+            const city = document.getElementById('city').value;
+
+            if (city === '' || state === '') {
+                alert('Please select a state and city.');
+                return;
+            }
+
+            // Fetch and display pollution status
+            const response = await fetch(`/check_pollution?city=${city}&state=${state}`);
+            const result = await response.json();
+
+            let resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '';
+
+            if (response.status === 404) {
+                resultDiv.innerHTML = `<p>${result.error}</p>`;
+            } else {
+                for (const [pollutant, status] of Object.entries(result)) {
+                    resultDiv.innerHTML += `<p>${pollutant}: ${status}</p>`;
+                }
+            }
+
+            // Fetch and display the plot
+            const plotResponse = await fetch(`/plot_pollution?state=${state}&city=${city}`);
+            const plotBlob = await plotResponse.blob();
+            const plotUrl = URL.createObjectURL(plotBlob);
+            document.getElementById('plot').src = plotUrl;
+
+            // Fetch and display the AQI of the selected city and state
+            const aqiResponse = await fetch(`/city_and_state_aqi?state=${state}&city=${city}`);
+            const aqiResult = await aqiResponse.json();
+
+            let aqiDiv = document.getElementById('aqi_result');
+            aqiDiv.innerHTML = '';
+
+            if (aqiResponse.status === 404) {
+                aqiDiv.innerHTML = `<p>${aqiResult.error}</p>`;
+            } else {
+                aqiDiv.innerHTML += `<h2>City AQI</h2>`;
+                for (const [pollutant, aqi] of Object.entries(aqiResult.City_AQI)) {
+                    aqiDiv.innerHTML += `<p>${pollutant}: ${aqi.toFixed(2)}</p>`;
+                }
+
+                aqiDiv.innerHTML += `<h2>State AQI</h2>`;
+                aqiDiv.innerHTML += `<p>State AQI: ${aqiResult.State_AQI.toFixed(2)}</p>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStates();
+
+            document.getElementById('state').addEventListener('change', (event) => {
+                fetchCities(event.target.value);
+            });
+
+            document.getElementById('check-button').addEventListener('click', checkPollution);
+        });
+    </script>
+</head>
+<body>
+    <h1>Pollution Checker</h1>
+    <label for="state">State:</label>
+    <select id="state">
+        <option value="">Select State</option>
+    </select>
+
+    <label for="city">City:</label>
+    <select id="city">
+        <option value="">Select City</option>
+    </select>
+
+    <button id="check-button">Check Pollution</button>
+
+    <div id="result"></div>
+    <img id="plot" src="" alt="Pollution Plot">
+    <div id="aqi_result"></div>
+</body>
+</html>
